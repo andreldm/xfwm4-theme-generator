@@ -48,8 +48,8 @@ install:
 	done
 
 	for n in 2 3 4 5; do \
-		cd $(THEME_DIR) && ln -s title-1-active.xpm title-$$n-active.xpm; \
-		cd $(THEME_DIR) && ln -s title-1-inactive.xpm title-$$n-inactive.xpm; \
+		cd $(THEME_DIR) && ln -sf title-1-active.xpm title-$$n-active.xpm; \
+		cd $(THEME_DIR) && ln -sf title-1-inactive.xpm title-$$n-inactive.xpm; \
 	done
 
 set-theme:
