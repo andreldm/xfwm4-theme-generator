@@ -8,4 +8,5 @@ See available [samples](https://github.com/andreldm/xfwm4-theme-generator/issues
 
 ### Status
 
-Experimental, while not pixel perfect, current results are enough for a satisfactory experience.
+Experimental, while not pixel perfect, current results are enough for a satisfactory experience. \
+Animations and opacity are not supported.
