@@ -1,9 +1,10 @@
 #include <gtk/gtk.h>
 
-static GdkRGBA background_active;
-static GdkRGBA background_inactive;
+static GdkRGBA background_color;
 static GdkRGBA title_active;
 static GdkRGBA title_inactive;
+static GdkPixbuf *active_pixbuf;
+static GdkPixbuf *inactive_pixbuf;
 static GtkWidget *minimize_button;
 static GtkWidget *maximize_button;
 static GtkWidget *close_button;
@@ -53,21 +54,29 @@ void headerbar_screenshot (gboolean active)
   g_free (filename);
   cairo_surface_destroy (clipped_surface);
 
-  pixbuf = gdk_pixbuf_get_from_surface (surface, 8, 8, 1, 1);
-  pixels = gdk_pixbuf_read_pixels (pixbuf);
-  color = g_strdup_printf ("rgba(%d,%d,%d,%d)", pixels[0], pixels[1], pixels[2], pixels[3]);
-  gdk_rgba_parse (active ? &background_active : &background_inactive, color);
-  g_free (color);
-  g_object_unref (G_OBJECT (pixbuf));
+  if (active) {
+    active_pixbuf = gdk_pixbuf_get_from_surface (surface, 8, 4, 1, allocation.height - 8);
+
+    pixbuf = gdk_pixbuf_get_from_surface (surface, 8, 8, 1, 1);
+    pixels = gdk_pixbuf_read_pixels (pixbuf);
+    color = g_strdup_printf ("rgba(%d,%d,%d,%d)", pixels[0], pixels[1], pixels[2], pixels[3]);
+    gdk_rgba_parse (&background_color, color);
+    g_free (color);
+    g_object_unref (G_OBJECT (pixbuf));
+  }
+  else {
+    inactive_pixbuf = gdk_pixbuf_get_from_surface (surface, 8, 4, 1, allocation.height - 8);
+  }
 
   cairo_destroy (cr);
   cairo_surface_destroy (surface);
 }
 
-void button_screenshot (GtkWidget *widget, const gchar *filename)
+void button_screenshot (GtkWidget *widget, const gchar *filename, gboolean active)
 {
   GtkAllocation allocation;
-  cairo_surface_t *surface;
+  cairo_surface_t *surface, *pattern_surface;
+  cairo_pattern_t *pattern;
   cairo_t *cr;
 
   gtk_widget_get_allocation (widget, &allocation);
@@ -75,10 +84,15 @@ void button_screenshot (GtkWidget *widget, const gchar *filename)
   surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, allocation.width, allocation.height);
   cr = cairo_create (surface);
 
-  gdk_cairo_set_source_rgba (cr, g_str_has_suffix (filename, "inactive.png") ?
-                                 &background_inactive : &background_active);
+  /* Draw background pattern */
+  pattern_surface = gdk_cairo_surface_create_from_pixbuf (active ? active_pixbuf : inactive_pixbuf, 0, NULL);
+  cairo_set_source_surface (cr, pattern_surface, 0, 0);
+  pattern = cairo_get_source (cr);
+  cairo_pattern_set_extend (pattern, CAIRO_EXTEND_REPEAT);
   cairo_rectangle (cr, 0, 0, allocation.width, allocation.height);
   cairo_fill (cr);
+  cairo_surface_destroy (pattern_surface);
+
   gtk_widget_draw (widget, cr);
   cairo_surface_write_to_png (surface, filename);
 
@@ -86,20 +100,20 @@ void button_screenshot (GtkWidget *widget, const gchar *filename)
   cairo_surface_destroy (surface);
 }
 
-void buttons_screenshots (const gchar *suffix)
+void buttons_screenshots (const gchar *suffix, gboolean active)
 {
   gchar *filename;
 
   filename = g_strdup_printf ("theme/hide-%s.png", suffix);
-  button_screenshot (minimize_button, filename);
+  button_screenshot (minimize_button, filename, active);
   g_free (filename);
 
   filename = g_strdup_printf ("theme/maximize-%s.png", suffix);
-  button_screenshot (maximize_button, filename);
+  button_screenshot (maximize_button, filename, active);
   g_free (filename);
 
   filename = g_strdup_printf ("theme/close-%s.png", suffix);
-  button_screenshot (close_button, filename);
+  button_screenshot (close_button, filename, active);
   g_free (filename);
 }
 
@@ -160,7 +174,7 @@ void generate_borders ()
 
   surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, 24, 24);
   cr = cairo_create (surface);
-  gdk_cairo_set_source_rgba (cr, &background_active);
+  gdk_cairo_set_source_rgba (cr, &background_color);
   cairo_rectangle (cr, 0, 0, 24, 24);
   cairo_fill (cr);
 
@@ -186,7 +200,7 @@ void generate_borders ()
   cairo_surface_write_to_png (surface, "theme/bottom-left-active.png");
   cairo_surface_write_to_png (surface, "theme/bottom-left-inactive.png");
 
-  gdk_cairo_set_source_rgba (cr, &background_active);
+  gdk_cairo_set_source_rgba (cr, &background_color);
   cairo_rectangle (cr, 0, 0, 24, 24);
   cairo_set_operator(cr,CAIRO_OPERATOR_OVER);
   cairo_fill (cr);
@@ -214,19 +228,22 @@ void execute_steps ()
     STEP (2, 250, prepare_headerbar_inactive ());
     STEP (3, 0, headerbar_screenshot (FALSE));
     STEP (4, 250, prepare_buttons (GTK_STATE_FLAG_BACKDROP));
-    STEP (5, 0, buttons_screenshots ("inactive"));
+    STEP (5, 0, buttons_screenshots ("inactive", FALSE));
     STEP (6, 0, get_title_color (&title_inactive));
     STEP (7, 250, gtk_widget_destroy (dialog));
     STEP (8, 0, get_title_color (&title_active));
     STEP (9, 250, prepare_buttons (GTK_STATE_FLAG_PRELIGHT));
-    STEP (10, 0, buttons_screenshots ("prelight"));
+    STEP (10, 0, buttons_screenshots ("prelight", TRUE));
     STEP (11, 250, prepare_buttons (GTK_STATE_FLAG_ACTIVE));
-    STEP (12, 0, buttons_screenshots ("pressed"));
+    STEP (12, 0, buttons_screenshots ("pressed", TRUE));
     STEP (13, 250, prepare_buttons (GTK_STATE_FLAG_NORMAL));
-    STEP (14, 0, buttons_screenshots ("active"));
+    STEP (14, 0, buttons_screenshots ("active", TRUE));
     STEP (15, 0, generate_themerc ());
     STEP (16, 0, generate_borders ());
-    default: gtk_main_quit ();
+    default:
+      g_object_unref (G_OBJECT (active_pixbuf));
+      g_object_unref (G_OBJECT (inactive_pixbuf));
+      gtk_main_quit ();
   }
 }
 
