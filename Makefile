@@ -50,5 +50,9 @@ install:
 	done
 	cp theme/themerc $(THEME_DIR)
 
-.SILENT: install
-.PHONY: install
+set-theme:
+	xfconf-query --channel xfwm4 --property /general/theme --set Default
+	xfconf-query --channel xfwm4 --property /general/theme --set Theme-Generator
+
+.SILENT: install set-theme
+.PHONY: install set-theme
