@@ -40,15 +40,17 @@ generator: theme-generator.c
 
 install:
 	mkdir -p $(THEME_DIR)
+	cp theme/themerc $(THEME_DIR)
+
 	for png_file in $(PNG_FILES); do \
 		image=$${png_file%.png}; \
 		convert theme/$$png_file -alpha set +dither $(THEME_DIR)/$$image.xpm; \
 	done
+
 	for n in 2 3 4 5; do \
-		ln -sf $(THEME_DIR)/title-1-active.xpm $(THEME_DIR)/title-$$n-active.xpm; \
-		ln -sf $(THEME_DIR)/title-1-inactive.xpm $(THEME_DIR)/title-$$n-inactive.xpm; \
+		cd $(THEME_DIR) && ln -s title-1-active.xpm title-$$n-active.xpm; \
+		cd $(THEME_DIR) && ln -s title-1-inactive.xpm title-$$n-inactive.xpm; \
 	done
-	cp theme/themerc $(THEME_DIR)
 
 set-theme:
 	xfconf-query --channel xfwm4 --property /general/theme --set Default
