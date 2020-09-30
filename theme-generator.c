@@ -169,7 +169,8 @@ show_app_icon=true",
 
 void generate_borders ()
 {
-  cairo_surface_t *surface, *clipped_surface;
+  cairo_surface_t *surface, *clipped_surface, *pattern_surface;
+  cairo_pattern_t *pattern;
   cairo_t *cr;
 
   surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, 24, 24);
@@ -177,9 +178,6 @@ void generate_borders ()
   gdk_cairo_set_source_rgba (cr, &background_color);
   cairo_rectangle (cr, 0, 0, 24, 24);
   cairo_fill (cr);
-
-  cairo_surface_write_to_png (surface, "theme/menu-active.png");
-  cairo_surface_write_to_png (surface, "theme/menu-inactive.png");
 
   clipped_surface = cairo_surface_create_for_rectangle (surface, 0, 0, 3, 24);
   cairo_surface_write_to_png (clipped_surface, "theme/right-active.png");
@@ -200,9 +198,10 @@ void generate_borders ()
   cairo_surface_write_to_png (surface, "theme/bottom-left-active.png");
   cairo_surface_write_to_png (surface, "theme/bottom-left-inactive.png");
 
+  cairo_set_operator(cr,CAIRO_OPERATOR_OVER);
+
   gdk_cairo_set_source_rgba (cr, &background_color);
   cairo_rectangle (cr, 0, 0, 24, 24);
-  cairo_set_operator(cr,CAIRO_OPERATOR_OVER);
   cairo_fill (cr);
   cairo_set_source_rgba (cr, 0, 0, 0, 0);
   cairo_rectangle (cr, 0, 0, 21, 21);
@@ -210,6 +209,28 @@ void generate_borders ()
   cairo_fill (cr);
   cairo_surface_write_to_png (surface, "theme/bottom-right-active.png");
   cairo_surface_write_to_png (surface, "theme/bottom-right-inactive.png");
+
+  cairo_set_operator(cr,CAIRO_OPERATOR_OVER);
+
+  /* Draw menu active */
+  pattern_surface = gdk_cairo_surface_create_from_pixbuf (active_pixbuf, 0, NULL);
+  cairo_set_source_surface (cr, pattern_surface, 0, 0);
+  pattern = cairo_get_source (cr);
+  cairo_pattern_set_extend (pattern, CAIRO_EXTEND_REPEAT);
+  cairo_rectangle (cr, 0, 0, 24, 24);
+  cairo_fill (cr);
+  cairo_surface_destroy (pattern_surface);
+  cairo_surface_write_to_png (surface, "theme/menu-active.png");
+
+  /* Draw menu inactive */
+  pattern_surface = gdk_cairo_surface_create_from_pixbuf (inactive_pixbuf, 0, NULL);
+  cairo_set_source_surface (cr, pattern_surface, 0, 0);
+  pattern = cairo_get_source (cr);
+  cairo_pattern_set_extend (pattern, CAIRO_EXTEND_REPEAT);
+  cairo_rectangle (cr, 0, 0, 24, 24);
+  cairo_fill (cr);
+  cairo_surface_destroy (pattern_surface);
+  cairo_surface_write_to_png (surface, "theme/menu-inactive.png");
 
   cairo_destroy (cr);
   cairo_surface_destroy (surface);
