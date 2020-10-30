@@ -179,7 +179,7 @@ static void button_screenshot (GtkWidget *widget, const gchar *filename, gboolea
 
 static void prepare_headerbar_inactive ()
 {
-  dialog = gtk_message_dialog_new (NULL, GTK_DIALOG_MODAL, GTK_MESSAGE_INFO, GTK_BUTTONS_NONE, NULL);
+  dialog = gtk_message_dialog_new (NULL, GTK_DIALOG_MODAL, GTK_MESSAGE_OTHER, GTK_BUTTONS_NONE, NULL);
   gtk_widget_show (dialog);
 }
 
