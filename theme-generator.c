@@ -36,7 +36,7 @@ int main (int argc, char *argv[])
   gtk_init (&argc, &argv);
 
   window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
-  gtk_window_set_title (GTK_WINDOW (window), "Sample");
+  gtk_window_set_title (GTK_WINDOW (window), "");
   gtk_window_set_position (GTK_WINDOW (window), GTK_WIN_POS_CENTER);
   gtk_window_set_default_size (GTK_WINDOW (window), 320, 240);
   gtk_widget_show_all (window);
@@ -199,7 +199,7 @@ static void headerbar_screenshot (gboolean active)
 
   gtk_widget_draw (headerbar, cr);
 
-  clipped_surface = cairo_surface_create_for_rectangle (surface, 8, 0, 2, allocation.height);
+  clipped_surface = cairo_surface_create_for_rectangle (surface, 96, 0, 2, allocation.height);
   filename = g_strdup_printf ("theme/title-1-%s.png", active ? "active" : "inactive");
   cairo_surface_write_to_png (clipped_surface, filename);
   g_free (filename);
@@ -218,9 +218,9 @@ static void headerbar_screenshot (gboolean active)
   cairo_surface_destroy (clipped_surface);
 
   if (active) {
-    active_pixbuf = gdk_pixbuf_get_from_surface (surface, 8, 4, 1, allocation.height - 8);
+    active_pixbuf = gdk_pixbuf_get_from_surface (surface, 96, 4, 1, allocation.height - 8);
 
-    pixbuf = gdk_pixbuf_get_from_surface (surface, 8, 8, 1, 1);
+    pixbuf = gdk_pixbuf_get_from_surface (surface, 96, 8, 1, 1);
     pixels = gdk_pixbuf_read_pixels (pixbuf);
     color = g_strdup_printf ("rgba(%d,%d,%d,%d)", pixels[0], pixels[1], pixels[2], pixels[3]);
     gdk_rgba_parse (&background_color, color);
@@ -228,7 +228,7 @@ static void headerbar_screenshot (gboolean active)
     g_object_unref (G_OBJECT (pixbuf));
   }
   else {
-    inactive_pixbuf = gdk_pixbuf_get_from_surface (surface, 8, 4, 1, allocation.height - 8);
+    inactive_pixbuf = gdk_pixbuf_get_from_surface (surface, 96, 4, 1, allocation.height - 8);
   }
 
   cairo_destroy (cr);
