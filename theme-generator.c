@@ -248,6 +248,7 @@ title_vertical_offset_active=2\n\
 title_vertical_offset_inactive=2\n\
 button_offset=4\n\
 button_spacing=6\n\
+maximized_offset=4\n\
 shadow_delta_height=2\n\
 shadow_delta_width=0\n\
 shadow_delta_x=0\n\
