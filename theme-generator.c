@@ -27,7 +27,7 @@ static gboolean resume ();
 
 int main (int argc, char *argv[])
 {
-  GtkWidget *window;
+  GtkWidget *window, *label;
 
   putenv("GTK_CSD=1");
   // putenv("GDK_SCALE=2");
@@ -40,6 +40,10 @@ int main (int argc, char *argv[])
   gtk_window_set_position (GTK_WINDOW (window), GTK_WIN_POS_CENTER);
   gtk_window_set_default_size (GTK_WINDOW (window), 320, 240);
   gtk_widget_show_all (window);
+
+  label = gtk_label_new ("Please wait while the theme is generated.");
+  gtk_container_add (GTK_CONTAINER (window), label);
+  gtk_widget_show (label);
 
   g_signal_connect (G_OBJECT (window), "destroy", G_CALLBACK (gtk_main_quit), NULL);
   g_timeout_add (250, init, window);
