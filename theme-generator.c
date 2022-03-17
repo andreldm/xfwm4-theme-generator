@@ -241,7 +241,8 @@ static void headerbar_screenshot (gboolean active)
 
 static void generate_themerc ()
 {
-  gchar *contents;
+  gchar *contents, *theme_name;
+  GtkSettings *settings;
 
   contents = g_strdup_printf ("active_text_color=#%02X%02X%02X\n\
 inactive_text_color=#%02X%02X%02X\n\
@@ -264,6 +265,11 @@ show_app_icon=true",
 
   g_file_set_contents ("theme/themerc", contents, -1, NULL);
   g_free (contents);
+
+  settings = gtk_settings_get_default ();
+  g_object_get (settings, "gtk-theme-name", &theme_name, NULL);
+  g_file_set_contents ("theme/.name", theme_name, -1, NULL);
+  g_free (theme_name);
 }
 
 static void generate_borders ()

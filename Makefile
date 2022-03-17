@@ -1,7 +1,8 @@
 CC=gcc
 CFLAGS=-O2 -Wall -Wextra $(shell pkg-config --cflags gtk+-3.0)
 LDFLAGS=$(shell pkg-config --libs gtk+-3.0)
-THEME_DIR = ~/.themes/Theme-Generator/xfwm4
+THEME_NAME=$(shell cat theme/.name)-generated
+THEME_DIR=~/.themes/$(THEME_NAME)/xfwm4
 
 PNG_FILES = 								\
 	close-active.png						\
@@ -54,7 +55,7 @@ install:
 
 set-theme:
 	xfconf-query --channel xfwm4 --property /general/theme --set Default
-	xfconf-query --channel xfwm4 --property /general/theme --set Theme-Generator
+	xfconf-query --channel xfwm4 --property /general/theme --set $(THEME_NAME)
 
 .SILENT: install set-theme
 .PHONY: install set-theme
