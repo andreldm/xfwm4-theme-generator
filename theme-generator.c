@@ -6,7 +6,7 @@ static GdkRGBA title_inactive;
 static GdkPixbuf *active_pixbuf;
 static GdkPixbuf *inactive_pixbuf;
 static GtkStyleContext *window_context, *decoration_context, *headerbar_context, *title_context, *button_context;
-static gint scale, headerbar_height;
+static gint scale, headerbar_height, button_width, button_height;
 
 static GtkStyleContext * create_style_context (GtkStyleContext *, const gchar *, const gchar *, ...);
 static void buttons_screenshots (const gchar *, GtkStateFlags);
@@ -15,14 +15,16 @@ static void headerbar_screenshot (gboolean);
 static void generate_themerc ();
 static void generate_borders ();
 static void get_title_color ();
-static gint get_headerbar_height();
+static void get_headerbar_height();
+static void get_button_dimentions();
 
 int main (int argc, char *argv[])
 {
   gtk_init (&argc, &argv);
 
   scale = 1; // TODO read from argument or system wide settings
-  headerbar_height = get_headerbar_height();
+  get_headerbar_height ();
+  get_button_dimentions ();
 
   window_context = create_style_context (NULL, "window", GTK_STYLE_CLASS_BACKGROUND, "csd", "metacity", NULL); // "solid-csd" is also accepted
   decoration_context = create_style_context (window_context, "decoration", NULL);
@@ -98,19 +100,18 @@ static void button_screenshot (const gchar *style_class, const gchar *filename)
 {
   cairo_surface_t *surface;
   cairo_t *cr;
-  gint x, y, width, height;
+  gint x, y;
 
   x = y = 0;
-  width = height = 24; // FIXME need to find the actual button dimensions
-  surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, width, height);
+  surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, button_width, button_height);
   cr = cairo_create (surface);
 
   /* Draw background */
-  gtk_render_background (headerbar_context, cr, x - 16, y - 4, width + 32, height + 8);
+  gtk_render_background (headerbar_context, cr, x - 16, y - 4, button_width + 32, button_height + 8);
 
   gtk_style_context_add_class (button_context, style_class);
-  gtk_render_background (button_context, cr, x, y, width, height);
-  gtk_render_frame (button_context, cr, x, y, width, height);
+  gtk_render_background (button_context, cr, x, y, button_width, button_height);
+  gtk_render_frame (button_context, cr, x, y, button_width, button_height);
 
   cairo_surface_write_to_png (surface, filename);
 
@@ -286,7 +287,7 @@ static void get_title_color ()
   gtk_style_context_get_color (title_context, GTK_STATE_FLAG_INSENSITIVE, &title_inactive);
 }
 
-static gint get_headerbar_height ()
+static void get_headerbar_height ()
 {
   GtkAllocation allocation;
   GtkWidget *offscreen_window;
@@ -300,5 +301,26 @@ static gint get_headerbar_height ()
   gtk_widget_get_allocation (headerbar, &allocation);
   gtk_widget_destroy (offscreen_window);
 
-  return allocation.height;
+  headerbar_height = allocation.height;
+}
+
+static void get_button_dimentions ()
+{
+  GtkAllocation allocation;
+  GtkWidget *offscreen_window;
+  GtkWidget *button;
+  GtkStyleContext *context;
+
+  offscreen_window = gtk_offscreen_window_new ();
+  button = gtk_button_new ();
+  context = gtk_widget_get_style_context (button);
+  gtk_style_context_add_class (context, "titlebutton");
+
+  gtk_container_add (GTK_CONTAINER (offscreen_window), button);
+  gtk_widget_show_all (offscreen_window);
+  gtk_widget_get_allocation (button, &allocation);
+  gtk_widget_destroy (offscreen_window);
+
+  button_width = allocation.width;
+  button_height = allocation.height;
 }
