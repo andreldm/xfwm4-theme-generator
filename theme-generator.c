@@ -6,11 +6,11 @@ static GdkRGBA title_inactive;
 static GdkPixbuf *active_pixbuf;
 static GdkPixbuf *inactive_pixbuf;
 static GtkStyleContext *window_context, *decoration_context, *headerbar_context, *title_context, *button_context;
-static gint scale;
+static gint scale, headerbar_height;
 
 static GtkStyleContext * create_style_context (GtkStyleContext *, const gchar *, const gchar *, ...);
-static void buttons_screenshots (const gchar *, GtkStateFlags, gboolean);
-static void button_screenshot (const gchar *, const gchar *, gboolean);
+static void buttons_screenshots (const gchar *, GtkStateFlags);
+static void button_screenshot (const gchar *, const gchar *);
 static void headerbar_screenshot (gboolean);
 static void generate_themerc ();
 static void generate_borders ();
@@ -22,6 +22,7 @@ int main (int argc, char *argv[])
   gtk_init (&argc, &argv);
 
   scale = 1; // TODO read from argument or system wide settings
+  headerbar_height = get_headerbar_height();
 
   window_context = create_style_context (NULL, "window", GTK_STYLE_CLASS_BACKGROUND, "csd", "metacity", NULL); // "solid-csd" is also accepted
   decoration_context = create_style_context (window_context, "decoration", NULL);
@@ -31,11 +32,11 @@ int main (int argc, char *argv[])
 
   g_mkdir_with_parents ("theme", 0755);
   headerbar_screenshot (TRUE);
+  buttons_screenshots ("prelight", GTK_STATE_FLAG_PRELIGHT);
+  buttons_screenshots ("pressed", GTK_STATE_FLAG_ACTIVE);
+  buttons_screenshots ("active", GTK_STATE_FLAG_NORMAL);
   headerbar_screenshot (FALSE);
-  buttons_screenshots ("inactive", GTK_STATE_FLAG_BACKDROP, FALSE);
-  buttons_screenshots ("prelight", GTK_STATE_FLAG_PRELIGHT, TRUE);
-  buttons_screenshots ("pressed", GTK_STATE_FLAG_ACTIVE, TRUE);
-  buttons_screenshots ("active", GTK_STATE_FLAG_NORMAL, TRUE);
+  buttons_screenshots ("inactive", GTK_STATE_FLAG_BACKDROP);
   get_title_color ();
   generate_themerc ();
   generate_borders ();
@@ -71,7 +72,7 @@ static GtkStyleContext * create_style_context (GtkStyleContext *parent, const gc
   return context;
 }
 
-static void buttons_screenshots (const gchar *suffix, GtkStateFlags state, gboolean active)
+static void buttons_screenshots (const gchar *suffix, GtkStateFlags state)
 {
   gchar *filename;
   static GtkStateFlags original_state = 0;
@@ -81,39 +82,31 @@ static void buttons_screenshots (const gchar *suffix, GtkStateFlags state, gbool
   gtk_style_context_set_state (button_context, original_state | state);
 
   filename = g_strdup_printf ("theme/hide-%s.png", suffix);
-  button_screenshot ("minimize", filename, active);
+  button_screenshot ("minimize", filename);
   g_free (filename);
 
   filename = g_strdup_printf ("theme/maximize-%s.png", suffix);
-  button_screenshot ("maximize", filename, active);
+  button_screenshot ("maximize", filename);
   g_free (filename);
 
   filename = g_strdup_printf ("theme/close-%s.png", suffix);
-  button_screenshot ("close", filename, active);
+  button_screenshot ("close", filename);
   g_free (filename);
 }
 
-static void button_screenshot (const gchar *style_class, const gchar *filename, gboolean active)
+static void button_screenshot (const gchar *style_class, const gchar *filename)
 {
-  cairo_surface_t *surface, *pattern_surface;
-  cairo_pattern_t *pattern;
+  cairo_surface_t *surface;
   cairo_t *cr;
   gint x, y, width, height;
+
   x = y = 0;
   width = height = 24; // FIXME need to find the actual button dimensions
-
   surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, width, height);
   cr = cairo_create (surface);
 
-  /* Draw background pattern */
-  // FIXME try to render headerbar_context instead
-  pattern_surface = gdk_cairo_surface_create_from_pixbuf (active ? active_pixbuf : inactive_pixbuf, 0, NULL);
-  cairo_set_source_surface (cr, pattern_surface, 0, 0);
-  pattern = cairo_get_source (cr);
-  cairo_pattern_set_extend (pattern, CAIRO_EXTEND_REPEAT);
-  cairo_rectangle (cr, 0, 0, width, height);
-  cairo_fill (cr);
-  cairo_surface_destroy (pattern_surface);
+  /* Draw background */
+  gtk_render_background (headerbar_context, cr, x - 16, y - 4, width + 32, height + 8);
 
   gtk_style_context_add_class (button_context, style_class);
   gtk_render_background (button_context, cr, x, y, width, height);
@@ -137,7 +130,7 @@ static void headerbar_screenshot (gboolean active)
   static GtkStateFlags original_state = 0;
 
   width = 300;
-  height = get_headerbar_height ();
+  height = headerbar_height;
 
   surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, width, height);
   cr = cairo_create (surface);
