@@ -15,6 +15,7 @@ static void headerbar_screenshot (gboolean);
 static void generate_themerc ();
 static void generate_borders ();
 static void get_title_color ();
+static gint get_headerbar_height();
 
 int main (int argc, char *argv[])
 {
@@ -136,7 +137,8 @@ static void headerbar_screenshot (gboolean active)
   static GtkStateFlags original_state = 0;
 
   width = 300;
-  height = 30; // FIXME need to find the actual titlebar height
+  height = get_headerbar_height ();
+
   surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, width, height);
   cr = cairo_create (surface);
 
@@ -289,4 +291,21 @@ static void get_title_color ()
 {
   gtk_style_context_get_color (title_context, GTK_STATE_FLAG_NORMAL, &title_active);
   gtk_style_context_get_color (title_context, GTK_STATE_FLAG_INSENSITIVE, &title_inactive);
+}
+
+static gint get_headerbar_height ()
+{
+  GtkAllocation allocation;
+  GtkWidget *offscreen_window;
+  GtkWidget *headerbar;
+
+  offscreen_window = gtk_offscreen_window_new ();
+  headerbar = gtk_header_bar_new ();
+
+  gtk_container_add (GTK_CONTAINER (offscreen_window), headerbar);
+  gtk_widget_show_all (offscreen_window);
+  gtk_widget_get_allocation (headerbar, &allocation);
+  gtk_widget_destroy (offscreen_window);
+
+  return allocation.height;
 }
