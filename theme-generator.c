@@ -23,14 +23,14 @@ int main (int argc, char *argv[])
   gtk_init (&argc, &argv);
 
   scale = 1; // TODO read from argument or system wide settings
-  get_headerbar_height ();
-  get_button_dimentions ();
-
   window_context = create_style_context (NULL, "window", GTK_STYLE_CLASS_BACKGROUND, "csd", "metacity", NULL); // "solid-csd" is also accepted
   decoration_context = create_style_context (window_context, "decoration", NULL);
   headerbar_context = create_style_context (window_context, "headerbar", GTK_STYLE_CLASS_TITLEBAR, GTK_STYLE_CLASS_HORIZONTAL, "default-decoration", NULL);
   title_context = create_style_context (headerbar_context, "label", GTK_STYLE_CLASS_TITLE, NULL);
   button_context = create_style_context (headerbar_context, "button", "titlebutton", NULL);
+
+  get_headerbar_height ();
+  get_button_dimentions ();
 
   g_mkdir_with_parents ("theme", 0755);
   headerbar_screenshot (TRUE);
@@ -98,9 +98,9 @@ static void buttons_screenshots (const gchar *suffix, GtkStateFlags state)
 
 static void button_screenshot (const gchar *style_class, const gchar *filename)
 {
+  gint x, y;
   cairo_surface_t *surface;
   cairo_t *cr;
-  gint x, y;
 
   x = y = 0;
   surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, button_width, button_height);
@@ -290,11 +290,22 @@ static void get_title_color ()
 static void get_headerbar_height ()
 {
   GtkAllocation allocation;
-  GtkWidget *offscreen_window;
-  GtkWidget *headerbar;
+  GtkWidget *offscreen_window, *headerbar;
+  GtkStyleContext *context;
+  GtkCssProvider *css_provider;
 
   offscreen_window = gtk_offscreen_window_new ();
   headerbar = gtk_header_bar_new ();
+  context = gtk_widget_get_style_context (headerbar);
+  gtk_style_context_add_class (context, "titlebar");
+  /* The following class makes the titlebar taller, which is good for Adwaita but bad for Greybird */
+  /* gtk_style_context_add_class (context, "default-decoration"); */
+
+  css_provider = gtk_css_provider_new ();
+  gtk_css_provider_load_from_data (css_provider, ".titlebar { min-height: 1px; }", -1, NULL);
+  gtk_style_context_add_provider_for_screen (gdk_screen_get_default (),
+                                             GTK_STYLE_PROVIDER (css_provider),
+                                             GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
 
   gtk_container_add (GTK_CONTAINER (offscreen_window), headerbar);
   gtk_widget_show_all (offscreen_window);
@@ -315,6 +326,7 @@ static void get_button_dimentions ()
   button = gtk_button_new ();
   context = gtk_widget_get_style_context (button);
   gtk_style_context_add_class (context, "titlebutton");
+  gtk_style_context_set_parent (context, headerbar_context);
 
   gtk_container_add (GTK_CONTAINER (offscreen_window), button);
   gtk_widget_show_all (offscreen_window);
