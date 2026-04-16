@@ -45,7 +45,7 @@ install:
 
 	for png_file in $(PNG_FILES); do \
 		image=$${png_file%.png}; \
-		convert theme/$$png_file -alpha set +dither $(THEME_DIR)/$$image.xpm; \
+		magick theme/$$png_file -alpha set +dither $(THEME_DIR)/$$image.xpm; \
 	done
 
 	for n in 2 3 4 5; do \
