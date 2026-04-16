@@ -5,7 +5,7 @@ static GdkRGBA title_active;
 static GdkRGBA title_inactive;
 static GdkPixbuf *active_pixbuf;
 static GdkPixbuf *inactive_pixbuf;
-static GtkStyleContext *window_context, *decoration_context, *headerbar_context, *title_context, *button_context, *image_context;
+static GtkStyleContext *window_context, *headerbar_context, *title_context, *button_context;
 static gint scale, headerbar_height, button_width, button_height;
 
 static GtkStyleContext * create_style_context (GtkStyleContext *, const gchar *, const gchar *, ...);
@@ -15,8 +15,8 @@ static void headerbar_screenshot (gboolean);
 static void generate_themerc ();
 static void generate_borders ();
 static void get_title_color ();
-static void get_headerbar_height();
-static void get_button_dimentions();
+static void get_headerbar_height ();
+static void get_button_dimensions ();
 
 int main (int argc, char *argv[])
 {
@@ -24,14 +24,12 @@ int main (int argc, char *argv[])
 
   scale = 1; // TODO read from argument or system wide settings
   window_context = create_style_context (NULL, "window", GTK_STYLE_CLASS_BACKGROUND, "csd", "metacity", NULL); // "solid-csd" is also accepted
-  decoration_context = create_style_context (window_context, "decoration", NULL);
   headerbar_context = create_style_context (window_context, "headerbar", GTK_STYLE_CLASS_TITLEBAR, GTK_STYLE_CLASS_HORIZONTAL, "default-decoration", NULL);
   title_context = create_style_context (headerbar_context, "label", GTK_STYLE_CLASS_TITLE, NULL);
   button_context = create_style_context (headerbar_context, "button", "titlebutton", NULL);
-  image_context = create_style_context (button_context, "image", NULL);
 
   get_headerbar_height ();
-  get_button_dimentions ();
+  get_button_dimensions ();
 
   g_mkdir_with_parents ("theme", 0755);
   headerbar_screenshot (TRUE);
@@ -77,53 +75,49 @@ static GtkStyleContext * create_style_context (GtkStyleContext *parent, const gc
 
 static void buttons_screenshots (const gchar *suffix, GtkStateFlags state)
 {
-  gchar *filename;
-  static GtkStateFlags original_state = 0;
+  static const struct { const gchar *prefix; const gchar *class; } buttons[] = {
+    { "hide",     "minimize" },
+    { "maximize", "maximize" },
+    { "close",    "close"    },
+  };
 
-  if (!original_state)
-    original_state = gtk_style_context_get_state (button_context);
-  gtk_style_context_set_state (button_context, original_state | state);
+  gtk_style_context_set_state (button_context, state);
 
-  filename = g_strdup_printf ("theme/hide-%s.png", suffix);
-  button_screenshot ("minimize", filename);
-  g_free (filename);
-
-  filename = g_strdup_printf ("theme/maximize-%s.png", suffix);
-  button_screenshot ("maximize", filename);
-  g_free (filename);
-
-  filename = g_strdup_printf ("theme/close-%s.png", suffix);
-  button_screenshot ("close", filename);
-  g_free (filename);
+  for (guint i = 0; i < G_N_ELEMENTS (buttons); i++) {
+    gchar *filename = g_strdup_printf ("theme/%s-%s.png", buttons[i].prefix, suffix);
+    button_screenshot (buttons[i].class, filename);
+    g_free (filename);
+  }
 }
 
 static void button_screenshot (const gchar *style_class, const gchar *filename)
 {
-  gint x, y;
+  static const struct { const gchar *class; const gchar *icon; } icon_map[] = {
+    { "minimize", "window-minimize-symbolic" },
+    { "maximize", "window-maximize-symbolic" },
+    { "close",    "window-close-symbolic"    },
+  };
   cairo_surface_t *surface;
   cairo_t *cr;
-  const gchar *icon_name;
   const gint icon_size = 16;
+  const gchar *icon_name = icon_map[2].icon; /* default: close */
   GError *error = NULL;
 
-  x = y = 0;
+  for (guint i = 0; i < G_N_ELEMENTS (icon_map) - 1; i++) {
+    if (g_strcmp0 (style_class, icon_map[i].class) == 0) {
+      icon_name = icon_map[i].icon;
+      break;
+    }
+  }
+
   surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, button_width, button_height);
   cr = cairo_create (surface);
 
-  /* Draw background */
-  gtk_render_background (headerbar_context, cr, x - 16, y - 4, button_width + 32, button_height + 8);
+  gtk_render_background (headerbar_context, cr, -16, -4, button_width + 32, button_height + 8);
 
   gtk_style_context_add_class (button_context, style_class);
-  gtk_render_background (button_context, cr, x, y, button_width, button_height);
-  gtk_render_frame (button_context, cr, x, y, button_width, button_height);
-
-  /* Draw the symbolic icon, properly colorized for the current style context */
-  if (g_strcmp0 (style_class, "minimize") == 0)
-    icon_name = "window-minimize-symbolic";
-  else if (g_strcmp0 (style_class, "maximize") == 0)
-    icon_name = "window-maximize-symbolic";
-  else
-    icon_name = "window-close-symbolic";
+  gtk_render_background (button_context, cr, 0, 0, button_width, button_height);
+  gtk_render_frame (button_context, cr, 0, 0, button_width, button_height);
 
   GtkIconInfo *icon_info = gtk_icon_theme_lookup_icon (
       gtk_icon_theme_get_default (), icon_name, icon_size, GTK_ICON_LOOKUP_FORCE_SYMBOLIC);
@@ -136,7 +130,7 @@ static void button_screenshot (const gchar *style_class, const gchar *filename)
       cairo_paint (cr);
       g_object_unref (pixbuf);
     } else {
-      g_warning ("Failed to load icon %s: %s", icon_name, error ? error->message : "(no icon info)");
+      g_warning ("Failed to load icon %s: %s", icon_name, error->message);
       g_clear_error (&error);
     }
   }
@@ -148,15 +142,23 @@ static void button_screenshot (const gchar *style_class, const gchar *filename)
   gtk_style_context_remove_class (button_context, style_class);
 }
 
+static void write_surface (cairo_surface_t *surface, gint x, gint y,
+                           gint width, gint height, const gchar *filename)
+{
+  cairo_surface_t *clipped = cairo_surface_create_for_rectangle (surface, x, y, width, height);
+  cairo_surface_write_to_png (clipped, filename);
+  cairo_surface_destroy (clipped);
+}
+
 static void headerbar_screenshot (gboolean active)
 {
   gint width, height;
-  cairo_surface_t *surface, *clipped_surface;
+  cairo_surface_t *surface;
   cairo_t *cr;
   gchar *filename, *color;
   GdkPixbuf *pixbuf;
   const guint8 *pixels;
-  static GtkStateFlags original_state = 0;
+  const gchar *state_name = active ? "active" : "inactive";
 
   width = 300;
   height = headerbar_height;
@@ -164,30 +166,22 @@ static void headerbar_screenshot (gboolean active)
   surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, width, height);
   cr = cairo_create (surface);
 
-  if (!original_state)
-    original_state = gtk_style_context_get_state (headerbar_context);
-  gtk_style_context_set_state (headerbar_context, original_state | (active ? GTK_STATE_FLAG_NORMAL : GTK_STATE_FLAG_BACKDROP));
+  gtk_style_context_set_state (headerbar_context, active ? GTK_STATE_FLAG_NORMAL : GTK_STATE_FLAG_BACKDROP);
 
   gtk_render_background (headerbar_context, cr, 0, 0, width, height);
   gtk_render_frame (headerbar_context, cr, 0, 0, width, height);
 
-  clipped_surface = cairo_surface_create_for_rectangle (surface, 96, 0, 2, height);
-  filename = g_strdup_printf ("theme/title-1-%s.png", active ? "active" : "inactive");
-  cairo_surface_write_to_png (clipped_surface, filename);
+  filename = g_strdup_printf ("theme/title-1-%s.png", state_name);
+  write_surface (surface, 96, 0, 2, height, filename);
   g_free (filename);
-  cairo_surface_destroy (clipped_surface);
 
-  clipped_surface = cairo_surface_create_for_rectangle (surface, 0, 0, 8, height);
-  filename = g_strdup_printf ("theme/top-left-%s.png", active ? "active" : "inactive");
-  cairo_surface_write_to_png (clipped_surface, filename);
+  filename = g_strdup_printf ("theme/top-left-%s.png", state_name);
+  write_surface (surface, 0, 0, 8, height, filename);
   g_free (filename);
-  cairo_surface_destroy (clipped_surface);
 
-  clipped_surface = cairo_surface_create_for_rectangle (surface, width - 8, 0, 8, height);
-  filename = g_strdup_printf ("theme/top-right-%s.png", active ? "active" : "inactive");
-  cairo_surface_write_to_png (clipped_surface, filename);
+  filename = g_strdup_printf ("theme/top-right-%s.png", state_name);
+  write_surface (surface, width - 8, 0, 8, height, filename);
   g_free (filename);
-  cairo_surface_destroy (clipped_surface);
 
   if (active) {
     active_pixbuf = gdk_pixbuf_get_from_surface (surface, 96, 4, 1, height - 8);
@@ -240,10 +234,21 @@ show_app_icon=true",
   g_free (theme_name);
 }
 
+static void draw_menu (cairo_t *cr, cairo_surface_t *surface,
+                       GdkPixbuf *pixbuf, const gchar *filename)
+{
+  cairo_surface_t *pattern_surface = gdk_cairo_surface_create_from_pixbuf (pixbuf, 0, NULL);
+  cairo_set_source_surface (cr, pattern_surface, 0, 0);
+  cairo_pattern_set_extend (cairo_get_source (cr), CAIRO_EXTEND_REPEAT);
+  cairo_rectangle (cr, 0, 0, 24, 24);
+  cairo_fill (cr);
+  cairo_surface_destroy (pattern_surface);
+  cairo_surface_write_to_png (surface, filename);
+}
+
 static void generate_borders ()
 {
-  cairo_surface_t *surface, *clipped_surface, *pattern_surface;
-  cairo_pattern_t *pattern;
+  cairo_surface_t *surface, *clipped_surface;
   cairo_t *cr;
 
   surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, 24, 24);
@@ -266,12 +271,12 @@ static void generate_borders ()
 
   cairo_set_source_rgba (cr, 0, 0, 0, 1);
   cairo_rectangle (cr, 3, 0, 21, 21);
-  cairo_set_operator(cr, CAIRO_OPERATOR_CLEAR);
+  cairo_set_operator (cr, CAIRO_OPERATOR_CLEAR);
   cairo_fill (cr);
   cairo_surface_write_to_png (surface, "theme/bottom-left-active.png");
   cairo_surface_write_to_png (surface, "theme/bottom-left-inactive.png");
 
-  cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
+  cairo_set_operator (cr, CAIRO_OPERATOR_OVER);
 
   gdk_cairo_set_source_rgba (cr, &background_color);
   cairo_rectangle (cr, 0, 0, 24, 24);
@@ -283,27 +288,10 @@ static void generate_borders ()
   cairo_surface_write_to_png (surface, "theme/bottom-right-active.png");
   cairo_surface_write_to_png (surface, "theme/bottom-right-inactive.png");
 
-  cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
+  cairo_set_operator (cr, CAIRO_OPERATOR_OVER);
 
-  /* Draw menu active */
-  pattern_surface = gdk_cairo_surface_create_from_pixbuf (active_pixbuf, 0, NULL);
-  cairo_set_source_surface (cr, pattern_surface, 0, 0);
-  pattern = cairo_get_source (cr);
-  cairo_pattern_set_extend (pattern, CAIRO_EXTEND_REPEAT);
-  cairo_rectangle (cr, 0, 0, 24, 24);
-  cairo_fill (cr);
-  cairo_surface_destroy (pattern_surface);
-  cairo_surface_write_to_png (surface, "theme/menu-active.png");
-
-  /* Draw menu inactive */
-  pattern_surface = gdk_cairo_surface_create_from_pixbuf (inactive_pixbuf, 0, NULL);
-  cairo_set_source_surface (cr, pattern_surface, 0, 0);
-  pattern = cairo_get_source (cr);
-  cairo_pattern_set_extend (pattern, CAIRO_EXTEND_REPEAT);
-  cairo_rectangle (cr, 0, 0, 24, 24);
-  cairo_fill (cr);
-  cairo_surface_destroy (pattern_surface);
-  cairo_surface_write_to_png (surface, "theme/menu-inactive.png");
+  draw_menu (cr, surface, active_pixbuf, "theme/menu-active.png");
+  draw_menu (cr, surface, inactive_pixbuf, "theme/menu-inactive.png");
 
   cairo_destroy (cr);
   cairo_surface_destroy (surface);
@@ -334,6 +322,7 @@ static void get_headerbar_height ()
   gtk_style_context_add_provider_for_screen (gdk_screen_get_default (),
                                              GTK_STYLE_PROVIDER (css_provider),
                                              GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+  g_object_unref (css_provider);
 
   gtk_container_add (GTK_CONTAINER (offscreen_window), headerbar);
   gtk_widget_show_all (offscreen_window);
@@ -343,7 +332,7 @@ static void get_headerbar_height ()
   headerbar_height = allocation.height;
 }
 
-static void get_button_dimentions ()
+static void get_button_dimensions ()
 {
   GtkAllocation allocation;
   GtkWidget *offscreen_window;
