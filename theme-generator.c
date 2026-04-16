@@ -5,7 +5,7 @@ static GdkRGBA title_active;
 static GdkRGBA title_inactive;
 static GdkPixbuf *active_pixbuf;
 static GdkPixbuf *inactive_pixbuf;
-static GtkStyleContext *window_context, *decoration_context, *headerbar_context, *title_context, *button_context;
+static GtkStyleContext *window_context, *decoration_context, *headerbar_context, *title_context, *button_context, *image_context;
 static gint scale, headerbar_height, button_width, button_height;
 
 static GtkStyleContext * create_style_context (GtkStyleContext *, const gchar *, const gchar *, ...);
@@ -28,6 +28,7 @@ int main (int argc, char *argv[])
   headerbar_context = create_style_context (window_context, "headerbar", GTK_STYLE_CLASS_TITLEBAR, GTK_STYLE_CLASS_HORIZONTAL, "default-decoration", NULL);
   title_context = create_style_context (headerbar_context, "label", GTK_STYLE_CLASS_TITLE, NULL);
   button_context = create_style_context (headerbar_context, "button", "titlebutton", NULL);
+  image_context = create_style_context (button_context, "image", NULL);
 
   get_headerbar_height ();
   get_button_dimentions ();
@@ -101,6 +102,9 @@ static void button_screenshot (const gchar *style_class, const gchar *filename)
   gint x, y;
   cairo_surface_t *surface;
   cairo_t *cr;
+  const gchar *icon_name;
+  const gint icon_size = 16;
+  GError *error = NULL;
 
   x = y = 0;
   surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, button_width, button_height);
@@ -112,6 +116,30 @@ static void button_screenshot (const gchar *style_class, const gchar *filename)
   gtk_style_context_add_class (button_context, style_class);
   gtk_render_background (button_context, cr, x, y, button_width, button_height);
   gtk_render_frame (button_context, cr, x, y, button_width, button_height);
+
+  /* Draw the symbolic icon, properly colorized for the current style context */
+  if (g_strcmp0 (style_class, "minimize") == 0)
+    icon_name = "window-minimize-symbolic";
+  else if (g_strcmp0 (style_class, "maximize") == 0)
+    icon_name = "window-maximize-symbolic";
+  else
+    icon_name = "window-close-symbolic";
+
+  GtkIconInfo *icon_info = gtk_icon_theme_lookup_icon (
+      gtk_icon_theme_get_default (), icon_name, icon_size, GTK_ICON_LOOKUP_FORCE_SYMBOLIC);
+
+  if (icon_info) {
+    GdkPixbuf *pixbuf = gtk_icon_info_load_symbolic_for_context (icon_info, button_context, NULL, &error);
+    g_object_unref (icon_info);
+    if (pixbuf) {
+      gdk_cairo_set_source_pixbuf (cr, pixbuf, (button_width - icon_size) / 2, (button_height - icon_size) / 2);
+      cairo_paint (cr);
+      g_object_unref (pixbuf);
+    } else {
+      g_warning ("Failed to load icon %s: %s", icon_name, error ? error->message : "(no icon info)");
+      g_clear_error (&error);
+    }
+  }
 
   cairo_surface_write_to_png (surface, filename);
 
