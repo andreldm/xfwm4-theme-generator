@@ -16,7 +16,6 @@ static void generate_themerc ();
 static void generate_borders ();
 static void get_title_color ();
 static void get_headerbar_height ();
-static void get_button_dimensions ();
 
 int main (int argc, char *argv[])
 {
@@ -29,7 +28,6 @@ int main (int argc, char *argv[])
   button_context = create_style_context (headerbar_context, "button", "titlebutton", NULL);
 
   get_headerbar_height ();
-  get_button_dimensions ();
 
   g_mkdir_with_parents ("theme", 0755);
   headerbar_screenshot (TRUE);
@@ -305,51 +303,33 @@ static void get_title_color ()
 
 static void get_headerbar_height ()
 {
-  GtkAllocation allocation;
-  GtkWidget *offscreen_window, *headerbar;
-  GtkStyleContext *context;
-  GtkCssProvider *css_provider;
+  GtkBorder hb_padding, hb_border, btn_margin, btn_border, btn_padding;
+  gint hb_min_height, btn_min_height, btn_min_width;
+  gint btn_content_h, btn_content_w, content;
 
-  offscreen_window = gtk_offscreen_window_new ();
-  headerbar = gtk_header_bar_new ();
-  context = gtk_widget_get_style_context (headerbar);
-  gtk_style_context_add_class (context, "titlebar");
-  /* The following class makes the titlebar taller, which is good for Adwaita but bad for Greybird */
-  /* gtk_style_context_add_class (context, "default-decoration"); */
+  gtk_style_context_get_padding (headerbar_context, GTK_STATE_FLAG_NORMAL, &hb_padding);
+  gtk_style_context_get_border (headerbar_context, GTK_STATE_FLAG_NORMAL, &hb_border);
+  gtk_style_context_get (headerbar_context, GTK_STATE_FLAG_NORMAL,
+                         "min-height", &hb_min_height, NULL);
 
-  css_provider = gtk_css_provider_new ();
-  gtk_css_provider_load_from_data (css_provider, ".titlebar { min-height: 1px; }", -1, NULL);
-  gtk_style_context_add_provider_for_screen (gdk_screen_get_default (),
-                                             GTK_STYLE_PROVIDER (css_provider),
-                                             GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
-  g_object_unref (css_provider);
+  gtk_style_context_get_margin (button_context, GTK_STATE_FLAG_NORMAL, &btn_margin);
+  gtk_style_context_get_border (button_context, GTK_STATE_FLAG_NORMAL, &btn_border);
+  gtk_style_context_get_padding (button_context, GTK_STATE_FLAG_NORMAL, &btn_padding);
+  gtk_style_context_get (button_context, GTK_STATE_FLAG_NORMAL,
+                         "min-height", &btn_min_height, NULL);
+  gtk_style_context_get (button_context, GTK_STATE_FLAG_NORMAL,
+                         "min-width", &btn_min_width, NULL);
 
-  gtk_container_add (GTK_CONTAINER (offscreen_window), headerbar);
-  gtk_widget_show_all (offscreen_window);
-  gtk_widget_get_allocation (headerbar, &allocation);
-  gtk_widget_destroy (offscreen_window);
-
-  headerbar_height = allocation.height;
+  /* Mirror GtkHeaderBar's height calculation: max(headerbar min-height, button
+   * content + button margins) plus the headerbar's own padding and border. */
+  btn_content_h = btn_min_height + btn_border.top + btn_border.bottom
+                  + btn_padding.top + btn_padding.bottom;
+  btn_content_w = btn_min_width + btn_border.left + btn_border.right
+                  + btn_padding.left + btn_padding.right;
+  content = MAX (hb_min_height, btn_content_h + btn_margin.top + btn_margin.bottom);
+  headerbar_height = content + hb_padding.top + hb_padding.bottom
+                     + hb_border.top + hb_border.bottom;
+  button_height = btn_content_h;
+  button_width = btn_content_w;
 }
 
-static void get_button_dimensions ()
-{
-  GtkAllocation allocation;
-  GtkWidget *offscreen_window;
-  GtkWidget *button;
-  GtkStyleContext *context;
-
-  offscreen_window = gtk_offscreen_window_new ();
-  button = gtk_button_new ();
-  context = gtk_widget_get_style_context (button);
-  gtk_style_context_add_class (context, "titlebutton");
-  gtk_style_context_set_parent (context, headerbar_context);
-
-  gtk_container_add (GTK_CONTAINER (offscreen_window), button);
-  gtk_widget_show_all (offscreen_window);
-  gtk_widget_get_allocation (button, &allocation);
-  gtk_widget_destroy (offscreen_window);
-
-  button_width = allocation.width;
-  button_height = allocation.height;
-}
