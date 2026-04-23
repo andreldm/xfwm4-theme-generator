@@ -10,7 +10,7 @@ static gint scale, headerbar_height, button_width, button_height;
 
 static GtkStyleContext * create_style_context (GtkStyleContext *, const gchar *, const gchar *, ...);
 static void buttons_screenshots (const gchar *, GtkStateFlags);
-static void button_screenshot (const gchar *, const gchar *);
+static void button_screenshot (const gchar *, const gchar *, const gchar *);
 static void headerbar_screenshot (gboolean);
 static void generate_themerc ();
 static void generate_borders ();
@@ -73,40 +73,28 @@ static GtkStyleContext * create_style_context (GtkStyleContext *parent, const gc
 
 static void buttons_screenshots (const gchar *suffix, GtkStateFlags state)
 {
-  static const struct { const gchar *prefix; const gchar *class; } buttons[] = {
-    { "hide",     "minimize" },
-    { "maximize", "maximize" },
-    { "close",    "close"    },
+  static const struct { const gchar *prefix; const gchar *class; const gchar *icon; } buttons[] = {
+    { "hide",             "minimize", "window-minimize-symbolic" },
+    { "maximize",         "maximize", "window-maximize-symbolic" },
+    { "maximize-toggled", "maximize", "window-restore-symbolic"  },
+    { "close",            "close",    "window-close-symbolic"    },
   };
 
   gtk_style_context_set_state (button_context, state);
 
   for (guint i = 0; i < G_N_ELEMENTS (buttons); i++) {
     gchar *filename = g_strdup_printf ("theme/%s-%s.png", buttons[i].prefix, suffix);
-    button_screenshot (buttons[i].class, filename);
+    button_screenshot (filename, buttons[i].class, buttons[i].icon);
     g_free (filename);
   }
 }
 
-static void button_screenshot (const gchar *style_class, const gchar *filename)
+static void button_screenshot (const gchar *filename, const gchar *style_class, const gchar *icon_name)
 {
-  static const struct { const gchar *class; const gchar *icon; } icon_map[] = {
-    { "minimize", "window-minimize-symbolic" },
-    { "maximize", "window-maximize-symbolic" },
-    { "close",    "window-close-symbolic"    },
-  };
   cairo_surface_t *surface;
   cairo_t *cr;
   const gint icon_size = 16;
-  const gchar *icon_name = icon_map[2].icon; /* default: close */
   GError *error = NULL;
-
-  for (guint i = 0; i < G_N_ELEMENTS (icon_map) - 1; i++) {
-    if (g_strcmp0 (style_class, icon_map[i].class) == 0) {
-      icon_name = icon_map[i].icon;
-      break;
-    }
-  }
 
   surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, button_width, button_height);
   cr = cairo_create (surface);
@@ -332,4 +320,3 @@ static void get_headerbar_height ()
   button_height = btn_content_h;
   button_width = btn_content_w;
 }
-

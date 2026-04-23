@@ -17,6 +17,10 @@ PNG_FILES = 								\
 	maximize-inactive.png					\
 	maximize-prelight.png					\
 	maximize-pressed.png					\
+	maximize-toggled-active.png		\
+	maximize-toggled-inactive.png	\
+	maximize-toggled-prelight.png	\
+	maximize-toggled-pressed.png	\
 	title-1-active.png						\
 	title-1-inactive.png					\
 	top-left-active.png						\
