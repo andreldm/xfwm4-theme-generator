@@ -8,14 +8,14 @@ static GdkPixbuf *inactive_pixbuf;
 static GtkStyleContext *window_context, *headerbar_context, *title_context, *button_context;
 static gint scale, headerbar_height, button_width, button_height;
 
-static GtkStyleContext * create_style_context (GtkStyleContext *, const gchar *, const gchar *, ...);
-static void buttons_screenshots (const gchar *, GtkStateFlags);
-static void button_screenshot (const gchar *, const gchar *, const gchar *);
-static void headerbar_screenshot (gboolean);
+static GtkStyleContext *create_style_context (GtkStyleContext *, const gchar *, const gchar *, ...);
+static void screenshot_buttons (const gchar *, GtkStateFlags);
+static void screenshot_button (const gchar *, const gchar *, const gchar *);
+static void screenshot_headerbar (gboolean);
 static void generate_themerc ();
 static void generate_borders ();
-static void get_title_color ();
-static void get_headerbar_height ();
+static void determine_title_color ();
+static void determine_headerbar_height ();
 
 int main (int argc, char *argv[])
 {
@@ -27,23 +27,24 @@ int main (int argc, char *argv[])
   title_context = create_style_context (headerbar_context, "label", GTK_STYLE_CLASS_TITLE, NULL);
   button_context = create_style_context (headerbar_context, "button", "titlebutton", NULL);
 
-  get_headerbar_height ();
-
   g_mkdir_with_parents ("theme", 0755);
-  headerbar_screenshot (TRUE);
-  buttons_screenshots ("prelight", GTK_STATE_FLAG_PRELIGHT);
-  buttons_screenshots ("pressed", GTK_STATE_FLAG_ACTIVE);
-  buttons_screenshots ("active", GTK_STATE_FLAG_NORMAL);
-  headerbar_screenshot (FALSE);
-  buttons_screenshots ("inactive", GTK_STATE_FLAG_BACKDROP);
-  get_title_color ();
-  generate_themerc ();
+
+  determine_title_color ();
+  determine_headerbar_height ();
+
+  screenshot_headerbar (TRUE);
+  screenshot_buttons ("prelight", GTK_STATE_FLAG_PRELIGHT);
+  screenshot_buttons ("pressed", GTK_STATE_FLAG_ACTIVE);
+  screenshot_buttons ("active", GTK_STATE_FLAG_NORMAL);
+  screenshot_headerbar (FALSE);
+  screenshot_buttons ("inactive", GTK_STATE_FLAG_BACKDROP);
   generate_borders ();
+  generate_themerc ();
 
   return 0;
 }
 
-static GtkStyleContext * create_style_context (GtkStyleContext *parent, const gchar *object_name, const gchar *first_class, ...)
+static GtkStyleContext *create_style_context (GtkStyleContext *parent, const gchar *object_name, const gchar *first_class, ...)
 {
   GtkWidgetPath *path;
   GtkStyleContext *context;
@@ -71,7 +72,7 @@ static GtkStyleContext * create_style_context (GtkStyleContext *parent, const gc
   return context;
 }
 
-static void buttons_screenshots (const gchar *suffix, GtkStateFlags state)
+static void screenshot_buttons (const gchar *suffix, GtkStateFlags state)
 {
   static const struct { const gchar *prefix; const gchar *class; const gchar *icon; } buttons[] = {
     { "hide",             "minimize", "window-minimize-symbolic" },
@@ -84,17 +85,18 @@ static void buttons_screenshots (const gchar *suffix, GtkStateFlags state)
 
   for (guint i = 0; i < G_N_ELEMENTS (buttons); i++) {
     gchar *filename = g_strdup_printf ("theme/%s-%s.png", buttons[i].prefix, suffix);
-    button_screenshot (filename, buttons[i].class, buttons[i].icon);
+    screenshot_button (filename, buttons[i].class, buttons[i].icon);
     g_free (filename);
   }
 }
 
-static void button_screenshot (const gchar *filename, const gchar *style_class, const gchar *icon_name)
+static void screenshot_button (const gchar *filename, const gchar *style_class, const gchar *icon_name)
 {
   cairo_surface_t *surface;
   cairo_t *cr;
   const gint icon_size = 16;
   GError *error = NULL;
+  GtkIconInfo *icon_info;
 
   surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, button_width, button_height);
   cr = cairo_create (surface);
@@ -105,8 +107,7 @@ static void button_screenshot (const gchar *filename, const gchar *style_class, 
   gtk_render_background (button_context, cr, 0, 0, button_width, button_height);
   gtk_render_frame (button_context, cr, 0, 0, button_width, button_height);
 
-  GtkIconInfo *icon_info = gtk_icon_theme_lookup_icon (
-      gtk_icon_theme_get_default (), icon_name, icon_size, GTK_ICON_LOOKUP_FORCE_SYMBOLIC);
+  icon_info = gtk_icon_theme_lookup_icon (gtk_icon_theme_get_default (), icon_name, icon_size, GTK_ICON_LOOKUP_FORCE_SYMBOLIC);
 
   if (icon_info) {
     GdkPixbuf *pixbuf = gtk_icon_info_load_symbolic_for_context (icon_info, button_context, NULL, &error);
@@ -136,7 +137,7 @@ static void write_surface (cairo_surface_t *surface, gint x, gint y,
   cairo_surface_destroy (clipped);
 }
 
-static void headerbar_screenshot (gboolean active)
+static void screenshot_headerbar (gboolean active)
 {
   gint width, height;
   cairo_surface_t *surface;
@@ -178,8 +179,7 @@ static void headerbar_screenshot (gboolean active)
     gdk_rgba_parse (&background_color, color);
     g_free (color);
     g_object_unref (G_OBJECT (pixbuf));
-  }
-  else {
+  } else {
     inactive_pixbuf = gdk_pixbuf_get_from_surface (surface, 96, 4, 1, height - 8);
   }
 
@@ -283,13 +283,13 @@ static void generate_borders ()
   cairo_surface_destroy (surface);
 }
 
-static void get_title_color ()
+static void determine_title_color ()
 {
   gtk_style_context_get_color (title_context, GTK_STATE_FLAG_NORMAL, &title_active);
   gtk_style_context_get_color (title_context, GTK_STATE_FLAG_INSENSITIVE, &title_inactive);
 }
 
-static void get_headerbar_height ()
+static void determine_headerbar_height ()
 {
   GtkBorder hb_padding, hb_border, btn_margin, btn_border, btn_padding;
   gint hb_min_height, btn_min_height, btn_min_width;
